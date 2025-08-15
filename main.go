@@ -8,6 +8,7 @@ import (
 
 	_ "http-swagger-app/docs"
 
+	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -17,28 +18,33 @@ import (
 // @host localhost:8080
 // @BasePath /
 func main() {
-	mux := http.NewServeMux()
+	// Dùng gorilla/mux router
+	router := mux.NewRouter()
 
 	// Auth Handler
 	authHandler := &apis.AuthHandler{
 		Users: make(map[string]apis.User),
 	}
-	authHandler.RegisterRoutes(mux)
+	authHandler.RegisterRoutes(router)
 
 	// Profile Handler
 	profileHandler := &apis.ProfileHandler{}
-	profileHandler.RegisterRoutes(mux)
+	profileHandler.RegisterRoutes(router)
 
-	// Profile Handler
+	// Posts Handler
 	postHandler := &apis.PostsHandler{}
-	postHandler.RegisterRoutes(mux)
+	postHandler.RegisterRoutes(router)
+
+	// Posts Handler
+	reactHandler := &apis.ReactionsHandler{}
+	reactHandler.RegisterRoutes(router)
 
 	// Swagger
-	mux.Handle("/swagger/", httpSwagger.WrapHandler)
+	router.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
 	fmt.Println("Server started at :8080")
 	fmt.Println("Swagger: http://localhost:8080/swagger/index.html")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	if err := http.ListenAndServe(":8080", router); err != nil {
 		fmt.Println("Server stopped:", err)
 	}
 }
