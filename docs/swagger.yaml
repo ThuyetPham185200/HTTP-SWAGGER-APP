@@ -15,27 +15,20 @@ definitions:
       password:
         type: string
     type: object
-  apis.Profile:
+  apis.Post:
     properties:
-      avatar:
-        type: string
-      bio:
+      content:
         type: string
       createdAt:
         type: string
+      media_ids:
+        items:
+          type: integer
+        type: array
+      post_id:
+        type: integer
       user_id:
-        type: string
-      username:
-        type: string
-    type: object
-  apis.ProfileUpdate:
-    properties:
-      avatar:
-        type: string
-      bio:
-        type: string
-      username:
-        type: string
+        type: integer
     type: object
   apis.RegisterRequest:
     properties:
@@ -46,6 +39,21 @@ definitions:
       username:
         type: string
     type: object
+  apis.UserProfile:
+    properties:
+      avatar:
+        type: string
+      bio:
+        type: string
+      createdAt:
+        type: string
+      isPrivate:
+        type: boolean
+      user_id:
+        type: integer
+      username:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -53,7 +61,7 @@ info:
   title: Swagger with net/http
   version: "1.0"
 paths:
-  /auth/login:
+  /login:
     post:
       consumes:
       - application/json
@@ -83,35 +91,6 @@ paths:
       summary: Login user
       tags:
       - auth
-  /auth/register:
-    post:
-      consumes:
-      - application/json
-      description: Creates a new account
-      parameters:
-      - description: Register data
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/apis.RegisterRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Register a new user
-      tags:
-      - auth
   /me:
     delete:
       description: Mark account as deleted
@@ -136,25 +115,30 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Update avatar, username, or bio
+      description: Update your own profile
       parameters:
-      - description: Profile update data
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Profile data
         in: body
-        name: data
+        name: body
         required: true
         schema:
-          $ref: '#/definitions/apis.ProfileUpdate'
+          $ref: '#/definitions/apis.UserProfile'
       produces:
       - application/json
       responses:
         "200":
-          description: 'message: Profile updated'
+          description: OK
           schema:
             additionalProperties:
               type: string
             type: object
         "400":
-          description: 'error: Invalid data'
+          description: Bad Request
           schema:
             additionalProperties:
               type: string
@@ -192,47 +176,199 @@ paths:
       summary: Change password
       tags:
       - auth
-  /username/:
+  /me/posts:
     get:
-      description: return list of usernames
+      description: Get list of posts of current user
+      parameters:
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              type: string
-            type: array
-      summary: Get all usernames
+            additionalProperties: true
+            type: object
+      summary: Get own posts
       tags:
-      - username
+      - posts
+  /posts:
     post:
       consumes:
       - application/json
-      description: add a username to list
+      description: Create a new post
       parameters:
-      - description: Username JSON
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post data
         in: body
-        name: username
+        name: body
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/apis.Post'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a post
+      tags:
+      - posts
+  /posts/{post_id}:
+    delete:
+      description: Mark post as deleted
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: added successfully
+          description: OK
           schema:
-            type: string
-      summary: Add new username
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Soft delete a post
       tags:
-      - username
+      - posts
+    get:
+      description: Get post detail
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      - description: Bearer token
+        in: header
+        name: Authorization
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apis.Post'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get a post by ID
+      tags:
+      - posts
+    patch:
+      consumes:
+      - application/json
+      description: Update content or media_ids of a post
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post update data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/apis.Post'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a post
+      tags:
+      - posts
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new account
+      parameters:
+      - description: Register data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/apis.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register a new user
+      tags:
+      - auth
   /users:
     get:
-      description: Search users by query with pagination and sorting
+      description: Search users by query
       parameters:
       - description: Search query
         in: query
@@ -246,20 +382,24 @@ paths:
         in: query
         name: limit
         type: integer
-      - description: Sort by field
+      - description: Sort field
         in: query
         name: sort
+        type: string
+      - description: Bearer token
+        in: header
+        name: Authorization
         type: string
       produces:
       - application/json
       responses:
         "200":
-          description: users list and total count
+          description: OK
           schema:
             additionalProperties: true
             type: object
         "400":
-          description: 'error: Invalid parameters'
+          description: Bad Request
           schema:
             additionalProperties:
               type: string
@@ -269,12 +409,16 @@ paths:
       - profile
   /users/{user_id}:
     get:
-      description: Get profile by user_id (may require auth for private profiles)
+      description: Get profile of a user by user_id
       parameters:
       - description: User ID
         in: path
         name: user_id
         required: true
+        type: integer
+      - description: Bearer token
+        in: header
+        name: Authorization
         type: string
       produces:
       - application/json
@@ -282,9 +426,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/apis.Profile'
+            $ref: '#/definitions/apis.UserProfile'
         "403":
-          description: Private profile
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
           schema:
             additionalProperties:
               type: string
@@ -292,4 +442,42 @@ paths:
       summary: Get user profile
       tags:
       - profile
+  /users/{user_id}/posts:
+    get:
+      description: Get list of posts by user_id
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Bearer token
+        in: header
+        name: Authorization
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get posts of a user
+      tags:
+      - posts
 swagger: "2.0"

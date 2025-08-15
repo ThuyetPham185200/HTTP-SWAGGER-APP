@@ -5,20 +5,25 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
-type AuthHandler struct {
-	Users map[string]User // key = username hoặc email
-}
-
+// User struct
 type User struct {
 	ID        int
 	Username  string
 	Email     string
-	Password  string // lưu plain-text chỉ demo, thực tế phải hash
+	Password  string
 	IsDeleted bool
 }
 
+// AuthHandler chứa tất cả users
+type AuthHandler struct {
+	Users map[string]User // key = username hoặc email
+}
+
+// Request structs
 type RegisterRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
@@ -35,36 +40,31 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
-// RegisterRoutes registers all auth endpoints
-func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/auth/register", h.Register)
-	mux.HandleFunc("/auth/login", h.Login)
-	mux.HandleFunc("/auth/me/password", h.ChangePassword)
-	mux.HandleFunc("/auth/me", h.DeleteAccount)
+// RegisterRoutes đăng ký route với gorilla/mux
+func (h *AuthHandler) RegisterRoutes(r *mux.Router) {
+	r.HandleFunc("/register", h.Register).Methods("POST")
+	r.HandleFunc("/login", h.Login).Methods("POST")
+	r.HandleFunc("/me/password", h.ChangePassword).Methods("PUT")
+	r.HandleFunc("/me", h.DeleteAccount).Methods("DELETE")
 }
 
 // Register godoc
 // @Summary Register a new user
 // @Description Creates a new account
 // @Tags auth
-// @Accept  json
-// @Produce  json
+// @Accept json
+// @Produce json
 // @Param body body RegisterRequest true "Register data"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]string
-// @Router /auth/register [post]
+// @Router /register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Username == "" || req.Email == "" || req.Password == "" {
 		http.Error(w, `{"error":"Invalid data"}`, http.StatusBadRequest)
 		return
 	}
 
-	// fake ID
 	newID := len(h.Users) + 1
 	user := User{
 		ID:       newID,
@@ -72,6 +72,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Email:    req.Email,
 		Password: req.Password,
 	}
+
 	if h.Users == nil {
 		h.Users = make(map[string]User)
 	}
@@ -89,17 +90,13 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 // @Summary Login user
 // @Description Login using username or email
 // @Tags auth
-// @Accept  json
-// @Produce  json
+// @Accept json
+// @Produce json
 // @Param body body LoginRequest true "Login data"
 // @Success 200 {object} map[string]string
 // @Failure 401 {object} map[string]string
-// @Router /auth/login [post]
+// @Router /login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"Invalid data"}`, http.StatusBadRequest)
@@ -122,21 +119,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // @Summary Change password
 // @Description Change password for the current user
 // @Tags auth
-// @Accept  json
-// @Produce  json
+// @Accept json
+// @Produce json
 // @Param body body ChangePasswordRequest true "Password data"
 // @Success 200 {object} map[string]string
 // @Failure 403 {object} map[string]string
 // @Router /me/password [put]
 func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	// Demo: giả sử user hiện tại là "alice"
 	currentUser, exists := h.Users["alice"]
 	if !exists {
-		http.Error(w, `{"error":"Unauthorized"}`, http.StatusForbidden)
+		http.Error(w, `{"error":"Invalid old password"}`, http.StatusForbidden)
 		return
 	}
 
@@ -153,7 +146,6 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	currentUser.Password = req.NewPassword
 	h.Users["alice"] = currentUser
-	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Password updated"})
 }
 
@@ -161,23 +153,18 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // @Summary Soft delete current account
 // @Description Mark account as deleted
 // @Tags auth
-// @Produce  json
+// @Produce json
 // @Success 200 {object} map[string]string
 // @Failure 403 {object} map[string]string
 // @Router /me [delete]
 func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	// Demo: giả sử user hiện tại là "alice"
 	currentUser, exists := h.Users["alice"]
 	if !exists {
 		http.Error(w, `{"error":"Unauthorized"}`, http.StatusForbidden)
 		return
 	}
+
 	currentUser.IsDeleted = true
 	h.Users["alice"] = currentUser
-
 	json.NewEncoder(w).Encode(map[string]string{"message": "Account soft deleted"})
 }
